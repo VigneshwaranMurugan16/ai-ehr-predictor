@@ -1,3 +1,23 @@
-.env
-venv/
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual env
+venv/
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# Byte-compiled
+*.pyc
+
+# OS files
+.DS_Store
+
+# Docker
+postgres_data/
