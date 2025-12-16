@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Date, Float, DateTime, Boolean
 from datetime import datetime
 from app.db import Base
 
+
 class Patient(Base):
     __tablename__ = "patients"
     id = Column(Integer, primary_key=True, index=True)
@@ -41,3 +42,18 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=False, default="nurse")  # "nurse" / "doctor" / "admin"
     is_active = Column(Boolean, default=True)
+
+
+
+
+
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True, nullable=False)
+    action = Column(String, nullable=False)          # e.g. "VIEW_WARD", "VIEW_PATIENT", "COMPLETE_TASK"
+    details = Column(String, nullable=True)          # JSON string or simple text
+    created_at = Column(DateTime, default=datetime.utcnow)
