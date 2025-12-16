@@ -12,15 +12,20 @@ class PatientOut(BaseModel):
         orm_mode = True
 
 
+
+
 class WardPatientOut(BaseModel):
     patient_id: int
     first_name: str
     last_name: str
     risk_score: float
     risk_level: str
+    los_days: int | None = None
+    los_level: str | None = None
 
     class Config:
         orm_mode = True
+
 
 
 class TaskOut(BaseModel):

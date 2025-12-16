@@ -11,7 +11,7 @@ from app.schemas import (
     PredictReadmissionRequest,
     PredictReadmissionResponse,
 )
-from app.risk import calculate_readmission_risk
+from app.risk import calculate_readmission_risk, calculate_los_risk
 from app.services.security import get_db, require_role, log_action
 
 router = APIRouter(tags=["ward", "tasks", "prediction"])
@@ -23,7 +23,7 @@ RISK_LEVEL_ORDER = {"low": 1, "medium": 2, "high": 3}
 def ward_risk(
     min_level: str | None = Query(
         None,
-        description="Filter by minimum risk level: low, medium, high",
+        description="Filter by minimum readmission risk level: low, medium, high",
     ),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(["nurse", "doctor", "admin"])),
@@ -48,11 +48,27 @@ def ward_risk(
         level = r.risk_level or "unknown"
         score = r.risk_score or 0.0
 
+        # find matching encounter to compute LOS
+        enc = (
+            db.query(Encounter)
+            .filter(
+                Encounter.patient_id == r.patient_id,
+                Encounter.risk_score == r.risk_score,
+                Encounter.risk_level == r.risk_level,
+            )
+            .first()
+        )
+        los_days, los_level = (None, "unknown")
+        if enc:
+            los_days, los_level = calculate_los_risk(enc)
+
+        # apply optional readmission-risk filter
         if min_level is not None and min_level in RISK_LEVEL_ORDER:
             if level in RISK_LEVEL_ORDER:
                 if RISK_LEVEL_ORDER[level] < RISK_LEVEL_ORDER[min_level]:
                     continue
             else:
+                # unknown levels are treated as lowest risk
                 continue
 
         results.append(
@@ -62,6 +78,8 @@ def ward_risk(
                 last_name=r.last_name,
                 risk_score=score,
                 risk_level=level,
+                los_days=los_days,
+                los_level=los_level,
             )
         )
 

@@ -52,3 +52,27 @@ def calculate_readmission_risk(patient: Patient, encounter: Encounter) -> tuple[
         level = "low"
 
     return score, level
+
+
+from datetime import date
+from app.models import Patient, Encounter
+
+# existing calculate_readmission_risk...
+
+
+def calculate_los_risk(encounter: Encounter) -> tuple[int | None, str]:
+    """
+    Returns (length_of_stay_days, los_level)
+    los_level: "short", "medium", "long"
+    """
+    if not encounter.start_date or not encounter.end_date:
+        return None, "unknown"
+
+    los = (encounter.end_date - encounter.start_date).days
+    if los <= 1:
+        level = "short"
+    elif los <= 7:
+        level = "medium"
+    else:
+        level = "long"
+    return los, level
