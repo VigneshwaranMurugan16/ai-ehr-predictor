@@ -1,21 +1,33 @@
 from datetime import datetime, timedelta
 from typing import Optional
-
+from dotenv import load_dotenv
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-
+import os
 from app.models import User
 
-# In real production, move to env vars
-SECRET_KEY = "change-this-secret-in-env"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+# #In real production, move to env vars
+# SECRET_KEY = "change-this-secret-in-env"
+# ALGORITHM = "HS256"
+# ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256"],
-    deprecated="auto",
-)
+# pwd_context = CryptContext(
+#     schemes=["pbkdf2_sha256"],
+#     deprecated="auto",
+# )
 
+
+#Use argon2 instead of bcrypt for Python 3.13 compatibility
+from passlib.context import CryptContext
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-dev-secret-key")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+#Use argon2 (more modern, better for Python 3.13)
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
