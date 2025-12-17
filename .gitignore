@@ -21,3 +21,6 @@ venv/
 
 # Docker
 postgres_data/
+
+# SSL certificates (don't commit private keys)
+nginx/ssl/*.pem
