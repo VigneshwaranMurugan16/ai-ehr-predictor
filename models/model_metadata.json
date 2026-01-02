@@ -1,0 +1,50 @@
+{
+  "model_type": "XGBClassifier",
+  "features": [
+    "age_years_cleaned",
+    "gender_M",
+    "previous_admissions",
+    "days_since_last_admit",
+    "diagnosis_count",
+    "charlson_score",
+    "procedure_count",
+    "los_days",
+    "icu_stay_count",
+    "icu_los_days",
+    "admit_type_EMERGENCY",
+    "admit_type_URGENT",
+    "insurance_Medicare",
+    "insurance_Private",
+    "hospital_expire_flag"
+  ],
+  "n_features": 15,
+  "train_samples": 103,
+  "test_samples": 26,
+  "train_auroc": 1.0,
+  "test_auroc": 0.8333333333333334,
+  "cv_auroc_mean": 0.5561594202898551,
+  "cv_auroc_std": 0.2255525724259342,
+  "class_imbalance": "118:11",
+  "scale_pos_weight": 10.444444444444445,
+  "hyperparameters": {
+    "objective": "binary:logistic",
+    "eval_metric": "auc",
+    "max_depth": "4",
+    "learning_rate": "0.05",
+    "n_estimators": "100",
+    "min_child_weight": "3",
+    "subsample": "0.8",
+    "colsample_bytree": "0.8",
+    "scale_pos_weight": "10.444444444444445",
+    "random_state": "42",
+    "verbosity": "0"
+  },
+  "trained_date": "2026-01-02T21:51:46.221153",
+  "top_5_features": [
+    "hospital_expire_flag",
+    "gender_M",
+    "los_days",
+    "icu_los_days",
+    "charlson_score"
+  ]
+}

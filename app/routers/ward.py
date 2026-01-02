@@ -1,188 +1,131 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import desc
+# app/routers/ward.py
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from typing import Optional
 
-from app.models import Patient, Encounter, Task, User
-from app.schemas import (
-    WardPatientOut,
-    TaskOut,
-    PredictReadmissionRequest,
-    PredictReadmissionResponse,
-)
-from app.risk import calculate_readmission_risk, calculate_los_risk
-from app.services.security import get_db, require_role, log_action
+from app.models import Patient, Encounter, Task
+from app.services.security import get_db, get_current_user, log_action
 
-router = APIRouter(tags=["ward", "tasks", "prediction"])
+router = APIRouter(prefix="/ward", tags=["ward"])
 
-RISK_LEVEL_ORDER = {"low": 1, "medium": 2, "high": 3}
-
-
-@router.get("/ward/risk", response_model=list[WardPatientOut])
+@router.get("/risk")
 def ward_risk(
-    min_level: str | None = Query(
-        None,
-        description="Filter by minimum readmission risk level: low, medium, high",
-    ),
+    min_level: Optional[str] = Query(None, description="Filter by minimum risk level"),
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(["nurse", "doctor", "admin"])),
+    user=Depends(get_current_user),
 ):
+    """Get ward risk board - all patients with their latest encounter risk scores"""
+    
     log_action(db, user, "VIEW_WARD", details=f"min_level={min_level}")
-
-    rows = (
+    
+    # Query encounters with patient info
+    query = (
         db.query(
+            Encounter.encounter_id,
             Encounter.patient_id,
             Patient.first_name,
             Patient.last_name,
             Encounter.risk_score,
             Encounter.risk_level,
         )
-        .join(Patient, Patient.id == Encounter.patient_id)
-        .order_by(desc(Encounter.risk_score))
-        .all()
+        .join(Patient, Patient.patient_id == Encounter.patient_id)
+        .filter(Encounter.risk_score.isnot(None))
     )
-
-    results: list[WardPatientOut] = []
-    for r in rows:
-        level = r.risk_level or "unknown"
-        score = r.risk_score or 0.0
-
-        # find matching encounter to compute LOS
-        enc = (
-            db.query(Encounter)
-            .filter(
-                Encounter.patient_id == r.patient_id,
-                Encounter.risk_score == r.risk_score,
-                Encounter.risk_level == r.risk_level,
-            )
-            .first()
-        )
-        los_days, los_level = (None, "unknown")
-        if enc:
-            los_days, los_level = calculate_los_risk(enc)
-
-        # apply optional readmission-risk filter
-        if min_level is not None and min_level in RISK_LEVEL_ORDER:
-            if level in RISK_LEVEL_ORDER:
-                if RISK_LEVEL_ORDER[level] < RISK_LEVEL_ORDER[min_level]:
-                    continue
-            else:
-                # unknown levels are treated as lowest risk
-                continue
-
-        results.append(
-            WardPatientOut(
-                patient_id=r.patient_id,
-                first_name=r.first_name,
-                last_name=r.last_name,
-                risk_score=score,
-                risk_level=level,
-                los_days=los_days,
-                los_level=los_level,
-            )
-        )
-
-    db.commit()
-    return results
+    
+    # Apply risk filter
+    if min_level:
+        level_order = {"low": 1, "medium": 2, "high": 3}
+        if min_level in level_order:
+            min_value = level_order[min_level]
+            valid_levels = [k for k, v in level_order.items() if v >= min_value]
+            query = query.filter(Encounter.risk_level.in_(valid_levels))
+    
+    # Order by risk score descending
+    query = query.order_by(Encounter.risk_score.desc())
+    
+    results = query.all()
+    
+    # Format response
+    patients = []
+    for row in results:
+        patients.append({
+            "encounter_id": row.encounter_id,
+            "patient_id": row.patient_id,
+            "first_name": row.first_name,
+            "last_name": row.last_name,
+            "risk_score": float(row.risk_score) if row.risk_score else 0.0,
+            "risk_level": row.risk_level or "unknown",
+        })
+    
+    return patients
 
 
-@router.get("/tasks", response_model=list[TaskOut])
+@router.get("/tasks")
 def list_tasks(
-    status_filter: str | None = Query(
-        None,
-        description="Filter by status: open or completed",
-    ),
+    status_filter: Optional[str] = Query(None, description="Filter by status: open, completed, or all"),
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(["nurse", "doctor", "admin"])),
+    user=Depends(get_current_user),
 ):
+    """List all tasks for the nurse"""
+    
     log_action(db, user, "LIST_TASKS", details=f"status_filter={status_filter}")
-
-    query = db.query(Task).order_by(desc(Task.created_at))
-    if status_filter in ("open", "completed"):
+    
+    # Query tasks
+    query = db.query(Task)
+    
+    if status_filter and status_filter != "All":
         query = query.filter(Task.status == status_filter)
-    tasks = query.all()
-    db.commit()
-    return tasks
+    
+    # Order by created_at desc
+    tasks = query.order_by(Task.created_at.desc()).all()
+    
+    # Format response
+    result = []
+    for task in tasks:
+        result.append({
+            "task_id": task.task_id,
+            "patient_id": task.patient_id,
+            "encounter_id": task.encounter_id,
+            "task_type": task.task_type,
+            "status": task.status,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        })
+    
+    return result
 
 
-@router.post("/tasks/{task_id}/complete", response_model=TaskOut)
+@router.post("/tasks/{task_id}/complete")
 def complete_task(
     task_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(["nurse", "doctor", "admin"])),
+    user=Depends(get_current_user),
 ):
-    task = db.query(Task).filter(Task.id == task_id).first()
+    """Mark a task as completed"""
+    
+    task = db.query(Task).filter(Task.task_id == task_id).first()
+    
     if not task:
+        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Task not found")
-
+    
+    if task.status == "completed":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Task already completed")
+    
+    # Update task
+    from datetime import datetime
     task.status = "completed"
     task.completed_at = datetime.utcnow()
-    log_action(db, user, "COMPLETE_TASK", details=f"task_id={task_id}")
+    
     db.commit()
     db.refresh(task)
-    return task
-
-
-@router.post("/predict/readmission", response_model=PredictReadmissionResponse)
-def predict_readmission(
-    payload: PredictReadmissionRequest,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_role(["nurse", "doctor", "admin"])),
-):
-    log_action(
-        db,
-        user,
-        "PREDICT_READMISSION",
-        details=f"patient_id={payload.patient_id},encounter_id={payload.encounter_id}",
-    )
-
-    patient = db.query(Patient).filter(Patient.id == payload.patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-
-    encounter = (
-        db.query(Encounter)
-        .filter(
-            Encounter.id == payload.encounter_id,
-            Encounter.patient_id == patient.id,
-        )
-        .first()
-    )
-    if not encounter:
-        raise HTTPException(status_code=404, detail="Encounter not found for this patient")
-
-    score, level = calculate_readmission_risk(patient, encounter)
-
-    encounter.risk_score = score
-    encounter.risk_level = level
-    db.commit()
-    db.refresh(encounter)
-
-    if level == "high":
-        existing_task = (
-            db.query(Task)
-            .filter(
-                Task.patient_id == patient.id,
-                Task.encounter_id == encounter.id,
-                Task.task_type == "nurse_review",
-                Task.status == "open",
-            )
-            .first()
-        )
-        if not existing_task:
-            new_task = Task(
-                patient_id=patient.id,
-                encounter_id=encounter.id,
-                task_type="nurse_review",
-                status="open",
-            )
-            db.add(new_task)
-            db.commit()
-
-    return PredictReadmissionResponse(
-        patient_id=patient.id,
-        encounter_id=encounter.id,
-        risk_score=score,
-        risk_level=level,
-    )
+    
+    log_action(db, user, "COMPLETE_TASK", details=f"task_id={task_id}")
+    
+    return {
+        "task_id": task.task_id,
+        "status": task.status,
+        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+    }

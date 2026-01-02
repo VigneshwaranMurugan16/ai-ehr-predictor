@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.db import Base, engine
-from app.routers import auth, patients, ward
+from app.routers import auth, patients, ward, predict
 
 
 app = FastAPI(title="AI EHR Predictor MVP")
@@ -19,3 +19,4 @@ def health_check():
 app.include_router(auth.router)
 app.include_router(patients.router)
 app.include_router(ward.router)
+app.include_router(predict.router)

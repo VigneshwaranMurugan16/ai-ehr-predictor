@@ -48,7 +48,7 @@ def get_current_user(
         raise credentials_exception
 
     user = get_user_by_username(db, username=username)
-    if user is None or not user.is_active:
+    if user is None:
         raise credentials_exception
     return user
 
@@ -62,17 +62,21 @@ def require_role(required_roles: List[str]) -> Callable:
 
 
 # ----- Audit logging -----
+# app/services/security.py - Find log_action function:
+def log_action(db: Session, user, action: str, resource: str = None, details: str = None):
+    """Log user action - simplified"""
+    pass  # Disable audit logging for now
 
-def log_action(
-    db: Session,
-    user: User,
-    action: str,
-    details: str | None = None,
-) -> None:
-    entry = AuditLog(
-        user_id=user.id,
-        action=action,
-        details=details,
-    )
-    db.add(entry)
+# def log_action(
+#     db: Session,
+#     user: User,
+#     action: str,
+#     details: str | None = None,
+# ) -> None:
+#     entry = AuditLog(
+#         user_id=user.id,
+#         action=action,
+#         details=details,
+#     )
+#     db.add(entry)
     # caller decides when to commit

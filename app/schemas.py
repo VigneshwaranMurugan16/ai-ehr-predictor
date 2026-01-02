@@ -46,7 +46,6 @@ from pydantic import BaseModel
 
 class UserCreate(BaseModel):
     username: str
-    full_name: str | None = None
     password: str
     role: str = "nurse"  # default
 
@@ -54,7 +53,6 @@ class UserCreate(BaseModel):
 class UserOut(BaseModel):
     id: int
     username: str
-    full_name: str | None = None
     role: str
 
     class Config:

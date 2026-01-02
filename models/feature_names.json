@@ -1,0 +1,17 @@
+[
+  "age_years_cleaned",
+  "gender_M",
+  "previous_admissions",
+  "days_since_last_admit",
+  "diagnosis_count",
+  "charlson_score",
+  "procedure_count",
+  "los_days",
+  "icu_stay_count",
+  "icu_los_days",
+  "admit_type_EMERGENCY",
+  "admit_type_URGENT",
+  "insurance_Medicare",
+  "insurance_Private",
+  "hospital_expire_flag"
+]
