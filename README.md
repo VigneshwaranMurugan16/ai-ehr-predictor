@@ -14,12 +14,6 @@ A comprehensive machine learning pipeline for predicting 30-day hospital readmis
 - [Installation](#installation)
 - [Project Structure](#project-structure)
 - [Usage](#usage)
-- [Model Performance](#model-performance)
-- [Methodology](#methodology)
-- [Results](#results)
-- [Future Enhancements](#future-enhancements)
-- [Contributing](#contributing)
-- [License](#license)
 
 ---
 
@@ -227,6 +221,7 @@ GitHub: @VigneshwaranMurugan16
 
 ## ⚠️ Disclaimer
 This project is for research and educational purposes only. Not intended for clinical use without proper validation, regulatory approval, and clinical oversight.
+
 
 
 
